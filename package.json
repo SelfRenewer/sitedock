@@ -1,0 +1,48 @@
+{
+  "name": "sitedock",
+  "version": "1.0.0",
+  "description": "A menu-bar manager for local static sites and small apps on macOS: folders, live reload, LAN links with QR codes, cloudflared tunnels, a remote for other computers. Russian and English.",
+  "author": "SelfRenewer",
+  "license": "MIT",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SelfRenewer/sitedock"
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
+  "main": "out/main/index.js",
+  "scripts": {
+    "postinstall": "touch node_modules/.metadata_never_index",
+    "dev": "electron-vite dev; pnpm run tidy-apps",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc --noEmit",
+    "build": "electron-vite build && electron-builder --mac dmg --arm64 && pnpm run tidy-apps",
+    "build:dir": "electron-vite build && electron-builder --mac dir --arm64 && pnpm run tidy-apps",
+    "tidy-apps": "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -u node_modules/electron/dist/Electron.app; find release.noindex -maxdepth 5 -name '*.app' -exec /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -u {} \\; 2>/dev/null; true",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "chokidar": "^4.0.3",
+    "electron-store": "^8.2.0",
+    "qrcode": "^1.5.4",
+    "serve-handler": "^6.1.6",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@types/ws": "^8.5.13",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^44.2.0",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^5.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.7.3",
+    "vite": "^5.4.11"
+  },
+  "packageManager": "pnpm@11.21.0"
+}

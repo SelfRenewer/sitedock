@@ -1,0 +1,18 @@
+appId: io.github.selfrenewer.sitedock
+productName: SiteDock
+directories:
+  output: release.noindex # .noindex: Spotlight and Launchpad never list the build copies
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+mac:
+  category: public.app-category.developer-tools
+  darkModeSupport: true
+  identity: null
+  target:
+    - target: dmg
+      arch:
+        - arm64
+dmg:
+  artifactName: ${productName}-${version}-arm64.${ext}

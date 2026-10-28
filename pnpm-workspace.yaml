@@ -1,0 +1,13 @@
+# electron-builder корректно упаковывает зависимости только из плоского
+# node_modules, поэтому линкер — hoisted, а не симлинки .pnpm
+nodeLinker: hoisted
+
+# Электрону нужен postinstall, чтобы скачать бинарник
+allowBuilds:
+  electron: true
+  # виндовая упаковка не используется — скрипты ей не нужны
+  electron-winstaller: false
+  esbuild: true
+
+minimumReleaseAgeExclude:
+  - electron@44.2.0

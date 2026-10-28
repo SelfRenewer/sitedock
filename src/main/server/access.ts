@@ -1,4 +1,5 @@
 import net from 'node:net'
+import { posix } from 'node:path'
 import { timingSafeEqual } from 'node:crypto'
 
 export const TOKEN_COOKIE = 'sitedock_key'
@@ -111,4 +112,33 @@ export function withoutKeyCookie(header: string | undefined): string | undefined
     .join(';')
     .trim()
   return rest || undefined
+}
+
+/**
+ * The decoded path of a static request, read the way serve-handler reads it (the raw target up to «?»), or null for a
+ * target that the two parsers could read differently: not starting with exactly one «/» («//.env» is a host to WHATWG
+ * URL, a path to url.parse), a backslash (WHATWG turns it into «/»), bad %-escapes, a NUL.
+ */
+export function requestTarget(url: string | undefined): string | null {
+  const raw = url ?? '/'
+  if (!raw.startsWith('/') || raw.startsWith('//') || raw.includes('\\')) return null
+  const pathname = raw.split('?')[0].split('#')[0]
+  let decoded: string
+  try {
+    decoded = decodeURIComponent(pathname)
+  } catch {
+    return null
+  }
+  if (decoded.includes('\0') || decoded.includes('\\') || decoded.startsWith('//')) return null
+  return decoded
+}
+
+/**
+ * A segment starting with a dot (.env, .git) is hidden — except .well-known, part of the web's standards. Checked on
+ * the path as sent and as normalised («/a/../.env»), so dot segments cannot hide it.
+ */
+export function hasHiddenSegment(pathname: string): boolean {
+  const hidden = (p: string): boolean =>
+    p.split('/').some((segment) => segment.startsWith('.') && segment !== '.' && segment !== '..' && segment !== '.well-known')
+  return hidden(pathname) || hidden(posix.normalize(pathname))
 }

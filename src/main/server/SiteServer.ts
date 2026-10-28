@@ -15,8 +15,10 @@ import {
   TOKEN_COOKIE,
   TOKEN_PARAM,
   isAllowedHost,
+  hasHiddenSegment,
   isLoopback,
   liveReloadAllowed,
+  requestTarget,
   readCookie,
   tokenMatches
 } from './access'
@@ -343,7 +345,8 @@ export class SiteServer {
   private handle(req: http.IncomingMessage, res: http.ServerResponse, root: string): void {
     const started = Date.now()
     const method = req.method ?? 'GET'
-    const requestPath = safePathname(req.url)
+    // one reading of the path for the log, the hidden-file check and the file itself (null: a target to refuse)
+    const requestPath = requestTarget(req.url)
 
     res.on('finish', () => {
       pushLog({
@@ -351,7 +354,7 @@ export class SiteServer {
         siteId: this.site.id,
         siteName: this.site.name,
         method,
-        path: requestPath,
+        path: requestPath ?? '?',
         status: res.statusCode,
         ms: Date.now() - started
       })
@@ -374,6 +377,17 @@ export class SiteServer {
 
     if (this.site.kind === 'command') {
       proxyRequest(req, res, this.backendPort)
+      return
+    }
+
+    if (requestPath === null) {
+      res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' })
+      res.end('Bad request')
+      return
+    }
+    if (method !== 'GET' && method !== 'HEAD') {
+      res.writeHead(405, { Allow: 'GET, HEAD', 'Content-Type': 'text/plain; charset=utf-8' })
+      res.end('Method not allowed')
       return
     }
 
@@ -477,29 +491,10 @@ export class SiteServer {
   }
 }
 
-function safePathname(url: string | undefined): string {
-  if (!url) return '/'
-  try {
-    return decodeURIComponent(new URL(url, 'http://localhost').pathname)
-  } catch {
-    return url.split('?')[0]
-  }
-}
-
 function statSafe(target: string): fs.Stats | null {
   try {
     return fs.statSync(target)
   } catch {
     return null
   }
-}
-
-/**
- * Скрытым считается любой сегмент пути, начинающийся с точки, кроме
- * .well-known — он часть веб-стандартов и нужен обычным статическим сайтам.
- */
-function hasHiddenSegment(pathname: string): boolean {
-  return pathname
-    .split('/')
-    .some((segment) => segment.startsWith('.') && segment !== '.' && segment !== '.well-known')
 }

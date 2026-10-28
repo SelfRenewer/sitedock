@@ -180,6 +180,15 @@ export class RemoteServer {
     const config = this.config
     if (!config) return false
     if (isLoopback(req.socket.remoteAddress)) return true
+    const ip = req.socket.remoteAddress ?? ''
+
+    // A locked address gets no comparison at all — through the link, the cookie or the form alike.
+    const locked = this.lockedFor(ip)
+    if (locked) {
+      res.writeHead(429, { 'Content-Type': 'text/plain; charset=utf-8', 'Retry-After': String(locked) })
+      res.end(t('Слишком много попыток. Попробуйте через {locked} с.', { locked }))
+      return false
+    }
 
     const url = new URL(req.url ?? '/', 'http://localhost')
     const fromQuery = url.searchParams.get(TOKEN_PARAM)
@@ -190,16 +199,17 @@ export class RemoteServer {
         this.setCookie(res, config.token, `${url.pathname}${url.search}`)
         return false
       }
-      this.noteFailure(req.socket.remoteAddress ?? '')
+      this.noteFailure(ip)
     }
 
-    if (tokenMatches(readCookie(req.headers.cookie, COOKIE), config.token)) return true
+    const cookie = readCookie(req.headers.cookie, COOKIE)
+    if (tokenMatches(cookie, config.token)) return true
+    if (cookie) this.noteFailure(ip) // a wrong cookie is a guess too
 
     const wantsHtml = (req.headers.accept ?? '').includes('text/html')
     if (wantsHtml && req.method === 'GET') {
-      const locked = this.lockedFor(req.socket.remoteAddress ?? '')
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' })
-      res.end(loginPage(locked ? t('Слишком много попыток. Попробуйте через {locked} с.', { locked }) : null))
+      res.end(loginPage(null))
     } else {
       res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' })
       res.end(JSON.stringify({ error: t('Нужен вход в пульт') }))

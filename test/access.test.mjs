@@ -4,10 +4,12 @@ import { test } from 'node:test'
 
 import {
   TOKEN_COOKIE,
+  hasHiddenSegment,
   isAllowedHost,
   liveReloadAllowed,
   readCookie,
   remotePostAllowed,
+  requestTarget,
   tokenMatches,
   withoutKeyCookie
 } from '../src/main/server/access.ts'
@@ -60,4 +62,25 @@ test("our key cookie is not passed to a command site's app", () => {
   assert.equal(withoutKeyCookie(`${TOKEN_COOKIE}=k; theirs=1`), 'theirs=1')
   assert.equal(withoutKeyCookie(`${TOKEN_COOKIE}=k`), undefined)
   assert.equal(withoutKeyCookie('theirs=1'), 'theirs=1')
+})
+
+test('a static path is read once, the way serve-handler reads it; ambiguous targets are refused', () => {
+  assert.equal(requestTarget('/a/b.html?x=1'), '/a/b.html')
+  assert.equal(requestTarget('/caf%C3%A9/'), '/café/')
+  // «//.env» is a host to WHATWG URL («/») but a path to url.parse («//.env»): refused, not guessed
+  assert.equal(requestTarget('//.env'), null)
+  assert.equal(requestTarget('/\\.env'), null)
+  assert.equal(requestTarget('/%5c.env'), null)
+  assert.equal(requestTarget('/%E0%A4%A'), null) // a broken escape
+  assert.equal(requestTarget('/a%00.html'), null)
+  assert.equal(requestTarget('http://evil.example/.env'), null)
+})
+
+test('hidden files stay hidden, dot segments included', () => {
+  assert.ok(hasHiddenSegment('/.env'))
+  assert.ok(hasHiddenSegment('/a/.git/config'))
+  assert.ok(hasHiddenSegment('/a/../.env'))
+  assert.ok(hasHiddenSegment(requestTarget('/x/..%2f.env')))
+  assert.ok(!hasHiddenSegment('/.well-known/security.txt'))
+  assert.ok(!hasHiddenSegment('/assets/app.min.js'))
 })
